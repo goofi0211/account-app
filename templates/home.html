@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賬單分割應用</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', '微軟正黑體', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button {
+            background-color: #3498db;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .clear-button {
+            background-color: #e74c3c;
+        }
+        .clear-button:hover {
+            background-color: #c0392b;
+        }
+        .alert {
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+        .alert-success {
+            color: #3c763d;
+            background-color: #dff0d8;
+            border-color: #d6e9c6;
+        }
+        .alert-warning {
+            color: #8a6d3b;
+            background-color: #fcf8e3;
+            border-color: #faebcc;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #friendsList label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>賬單分割應用</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="container">
+        <h2>添加新朋友</h2>
+        <form method="POST" id="addFriendForm">
+            <input type="text" name="new_friend_name" placeholder="輸入新朋友的名字" required>
+            <button type="submit" name="add_friend" value="1" class="button">添加新朋友</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>分配金額</h2>
+        <form method="POST" id="paymentForm">
+            <div id="friendsList">
+                {% for friend in all_friends %}
+                    <label>
+                        <input type="checkbox" name="payables_friend" value="{{ friend.name }}">
+                        {{ friend.name }}
+                    </label>
+                {% endfor %}
+            </div>
+            <button type="button" id="selectAllBtn" class="button">全選所有人</button>
+            <input type="number" name="payables_amount" placeholder="金額" step="0.01" required>
+            <button type="submit" name="submit" class="button">提交付款</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>當前欠款和付款情況</h2>
+        <table>
+            <tr>
+                <th>姓名</th>
+                <th>應付金額</th>
+                <th>已付金額</th>
+                <th>剩餘應付</th>
+            </tr>
+            {% for friend in all_friends %}
+            <tr>
+                <td>{{ friend.name }}</td>
+                <td>{{ "%.2f"|format(friend.payable) }}</td>
+                <td>{{ "%.2f"|format(friend.paid) }}</td>
+                <td>{{ "%.2f"|format(friend.payable - friend.paid) }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="container">
+        <h2>支付賬單</h2>
+        <form method="POST" id="payForm">
+            <select name="paid_friend" required>
+                <option value="">選擇朋友</option>
+                {% for friend in all_friends %}
+                    <option value="{{ friend.name }}">{{ friend.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="paid_amount" placeholder="支付金額" step="0.01" required>
+            <button type="submit" name="pay" class="button">已付</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>清除記錄</h2>
+        <form method="POST">
+            <button type="submit" name="clear" value="1" class="button clear-button">一鍵清除所有記錄</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>重置資料庫</h2>
+        <form method="POST" onsubmit="return confirm('確定要重置資料庫嗎？這將刪除所有現有數據並添加預設朋友。');">
+            <button type="submit" name="reset_database" value="1" class="button clear-button">重置資料庫並添加預設朋友</button>
+        </form>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const friendsList = document.getElementById('friendsList');
+
+        selectAllBtn.addEventListener('click', function() {
+            const checkboxes = friendsList.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        });
+    });
+    </script>
+</body>
+</html>

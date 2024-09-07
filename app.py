@@ -12,6 +12,7 @@ db_dir = os.path.join(basedir, 'db')
 if not os.path.exists(db_dir):
     os.makedirs(db_dir)
 
+print(db_dir)
 # 初始化資料庫
 db = SQLAlchemy(app)
 
@@ -30,9 +31,9 @@ def initialize_default_friends():
             db.session.add(new_friend)
     db.session.commit()
 
-# 创建数据库表
-with app.app_context():
-    db.create_all()
+# 移除這部分，因為它會在每次運行時重建數據庫
+# with app.app_context():
+#     db.create_all()
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -95,6 +96,8 @@ def home():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
-        initialize_default_friends()
+        # 只在數據庫不存在時創建表格
+        if not os.path.exists(os.path.join(db_dir, 'your_database.db')):
+            db.create_all()
+            initialize_default_friends()
     app.run(debug=True)

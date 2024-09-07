@@ -1,14 +1,16 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///your_database.db'
-app.config['SECRET_KEY'] = 'your_secret_key'
+from sqlalchemy import inspect
 
 # 确保数据库目录存在
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_dir = os.path.join(basedir, 'db')
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(db_dir, "your_database.db")}'
+app.config['SECRET_KEY'] = 'your_secret_key'
+
 if not os.path.exists(db_dir):
     os.makedirs(db_dir)
 
@@ -18,6 +20,7 @@ db = SQLAlchemy(app)
 
 # 定义資料模型
 class Payment(db.Model):
+    __tablename__ = 'payment'  # 明確指定表名
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
     payable = db.Column(db.Float, default=0.0)
@@ -30,10 +33,8 @@ def initialize_default_friends():
             new_friend = Payment(name=friend)
             db.session.add(new_friend)
     db.session.commit()
+    print("Default friends initialized")
 
-# 移除這部分，因為它會在每次運行時重建數據庫
-# with app.app_context():
-#     db.create_all()
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -94,10 +95,53 @@ def home():
     all_friends = Payment.query.all()
     return render_template("home.html", all_friends=all_friends)
 
-if __name__ == '__main__':
+def check_db_structure():
     with app.app_context():
-        # 只在數據庫不存在時創建表格
-        if not os.path.exists(os.path.join(db_dir, 'your_database.db')):
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+        print(f"現有的表: {tables}")
+        if 'payment' in tables:
+            columns = [col['name'] for col in inspector.get_columns('payment')]
+            print(f"payment 表的列: {columns}")
+        else:
+            print("payment 表不存在")
+            return False
+    return True
+
+if __name__ == '__main__':
+    print("程序開始執行")
+    db_path = os.path.join(db_dir, 'your_database.db')
+    if not os.path.exists(db_path):
+        print("數據庫文件不存在，創建新數據庫")
+        with app.app_context():
             db.create_all()
+            print("數據庫表創建成功")
             initialize_default_friends()
+            print("默認朋友初始化成功")
+    else:
+        print("數據庫文件已存在，檢查結構")
+        if not check_db_structure():
+            print("payment 表不存在，創建表並初始化數據")
+            with app.app_context():
+                db.create_all()
+                initialize_default_friends()
+        else:
+            print("使用現有數據庫")
+    
+    check_db_structure()  # 檢查數據庫結構
     app.run(debug=True)
+
+# 在應用初始化之後，但在運行之前添加這段代碼
+test_file_path = os.path.join(db_dir, 'test_file.txt')
+try:
+    with open(test_file_path, 'w') as f:
+        f.write('Test')
+    print(f"Successfully created test file at {test_file_path}")
+    os.remove(test_file_path)
+    print("Test file removed successfully")
+except Exception as e:
+    print(f"Error creating test file: {e}")
+
+print(f"Database path: {app.config['SQLALCHEMY_DATABASE_URI']}")
+print(f"Database directory: {db_dir}")
+

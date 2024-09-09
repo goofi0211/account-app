@@ -121,7 +121,8 @@
             <div id="friendsList">
                 {% for friend in all_friends %}
                     <label>
-                        <input type="checkbox" name="payables_friend" value="{{ friend.name }}">
+                        <input type="checkbox" name="payables_friend" value="{{ friend.name }}"
+                               {% if friend.name in last_selected_friends %}checked{% endif %}>
                         {{ friend.name }}
                     </label>
                 {% endfor %}

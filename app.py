@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 import os
 from sqlalchemy import inspect
@@ -14,11 +14,8 @@ app = Flask(__name__)
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/testdb'
 
 # 部署到 Render 時使用這個
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://goofi:RIV7PyN8dqzrESy9bgLCxuYtcb1DHLBa@dpg-crffuitds78s73cmbg70-a/testdb_75h4'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://goofi:RIV7PyN8dqzrESy9bgLCxuYtcb1DHLBa@dpg-crffuitds78s73cmbg70-a.oregon-postgres.render.com/testdb_75h4'
 
-# 如果 DATABASE_URL 以 postgres:// 開頭，需要替換為 postgresql://
-if app.config['SQLALCHEMY_DATABASE_URI'] and app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
 
 app.config['SECRET_KEY'] = 'your_secret_key'
 
@@ -73,6 +70,8 @@ def home():
                         friend.payable += amount_per_friend
                 db.session.commit()
                 flash(f'成功分配金额：每人 {amount_per_friend:.2f}', 'success')
+                # 記錄最後選中的朋友
+                session['last_selected_friends'] = payables_friends
             else:
                 flash('请选择朋友并输入金额', 'warning')
         elif 'clear' in request.form:
@@ -103,8 +102,10 @@ def home():
         
         return redirect(url_for('home'))
 
-    all_friends = Payment.query.all()
-    return render_template("home.html", all_friends=all_friends)
+    all_friends = Payment.query.order_by(Payment.id).all()  # 確保按 ID 排序
+    # 從 session 中獲取最後選中的朋友
+    last_selected_friends = session.get('last_selected_friends', [])
+    return render_template("home.html", all_friends=all_friends, last_selected_friends=last_selected_friends)
 
 def check_db_structure():
     with app.app_context():

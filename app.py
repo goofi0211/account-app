@@ -8,7 +8,18 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 db_dir = os.path.join(basedir, 'db')
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(db_dir, "your_database.db")}'
+
+# 配置數據庫 URI
+# 本地開發時使用這個
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/testdb'
+
+# 部署到 Render 時使用這個
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://goofi:RIV7PyN8dqzrESy9bgLCxuYtcb1DHLBa@dpg-crffuitds78s73cmbg70-a/testdb_75h4'
+
+# 如果 DATABASE_URL 以 postgres:// 開頭，需要替換為 postgresql://
+if app.config['SQLALCHEMY_DATABASE_URI'] and app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
+
 app.config['SECRET_KEY'] = 'your_secret_key'
 
 if not os.path.exists(db_dir):
@@ -110,25 +121,19 @@ def check_db_structure():
 
 if __name__ == '__main__':
     print("程序開始執行")
-    db_path = os.path.join(db_dir, 'your_database.db')
-    if not os.path.exists(db_path):
-        print("數據庫文件不存在，創建新數據庫")
-        with app.app_context():
-            db.create_all()
-            print("數據庫表創建成功")
-            initialize_default_friends()
-            print("默認朋友初始化成功")
-    else:
-        print("數據庫文件已存在，檢查結構")
+    print("test1")
+    
+    with app.app_context():
+        db.create_all()
+        print("數據庫表創建成功")
+        
         if not check_db_structure():
             print("payment 表不存在，創建表並初始化數據")
-            with app.app_context():
-                db.create_all()
-                initialize_default_friends()
+            initialize_default_friends()
         else:
             print("使用現有數據庫")
     
-    check_db_structure()  # 檢查數據庫結構
+    print("準備運行 Flask 應用")
     app.run(debug=True)
 
 # 在應用初始化之後，但在運行之前添加這段代碼
